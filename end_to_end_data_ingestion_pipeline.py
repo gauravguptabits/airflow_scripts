@@ -8,6 +8,10 @@ from functools import reduce
 from textwrap import dedent
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.python import BranchPythonOperator
+from _checkpoint_task import (  data_ingestion_failure_ckpt_hook,
+                                data_ingestion_read_ckpt_hook, 
+                                data_ingestion_success_ckpt_hook)
+
 
 local_tz = pendulum.timezone("Asia/Kolkata")
 
@@ -56,7 +60,7 @@ with DAG(dag_id='End_to_End_Data_Ingestion_Pipeline',
                                 dag=dag)
 
     ckpt_reader_task = PythonOperator(task_id='ckpt_reader', 
-                                      python_callable=_read_ingestion_checkpoint)
+                                      python_callable=data_ingestion_read_ckpt_hook)
 
     op = SparkSubmitOperator(task_id=f'copy_data_task',
                             conn_id='Spark_Miniconda_Venv_pyspark',
@@ -72,10 +76,10 @@ with DAG(dag_id='End_to_End_Data_Ingestion_Pipeline',
                                             dag=dag)
 
     ckpt_success_task = PythonOperator(task_id='ckpt_success_update',
-                                       python_callable=_update_success_ckpt)
+                                       python_callable=data_ingestion_success_ckpt_hook)
 
     ckpt_failure_task = PythonOperator(task_id='ckpt_failure_update',
-                                      python_callable=_update_failure_ckpt)
+                                      python_callable=data_ingestion_failure_ckpt_hook)
 
     notification_task = BashOperator(task_id='notify_task',
                                   bash_command=f'echo NOTIFICATION_TASK',
