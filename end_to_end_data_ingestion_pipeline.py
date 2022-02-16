@@ -8,8 +8,8 @@ from functools import reduce
 from textwrap import dedent
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.python import BranchPythonOperator
-from _checkpoint_task import (  data_ingestion_failure_ckpt_hook, 
-                                data_ingestion_read_ckpt_hook,
+from _checkpoint_task import (  data_ingestion_failure_ckpt_hook,
+                                data_ingestion_read_ckpt_hook, 
                                 data_ingestion_success_ckpt_hook)
 
 
@@ -40,7 +40,7 @@ def _read_ingestion_checkpoint(ti):
     return
 
 def _check_task_status():
-    return 'ckpt_success_update'
+    return 
 
 def _update_failure_ckpt():
     # TODO: Implement a postgres hook here.
@@ -53,13 +53,13 @@ def _update_success_ckpt():
 with DAG(dag_id='End_to_End_Data_Ingestion_Pipeline',
           default_args=default_args,
           catchup=False,
-          schedule_interval= timedelta(minutes=30)) as dag:
+          schedule_interval= timedelta(days=1)) as dag:
 
-    # build_operator = BashOperator(task_id='prepare_build_task', 
-    #                             bash_command=f'bash {pyspark_app_home}/deploy.sh ', 
-    #                             dag=dag)
+    build_operator = BashOperator(task_id='prepare_build_task', 
+                                bash_command=f'bash {pyspark_app_home}/deploy.sh ', 
+                                dag=dag)
 
-    ckpt_reader_task = PythonOperator(task_id='ckpt_reader_1', 
+    ckpt_reader_task = PythonOperator(task_id='ckpt_reader', 
                                       python_callable=data_ingestion_read_ckpt_hook)
 
     op = SparkSubmitOperator(task_id=f'copy_data_task',
@@ -85,5 +85,5 @@ with DAG(dag_id='End_to_End_Data_Ingestion_Pipeline',
                                   bash_command=f'echo NOTIFICATION_TASK',
                                   dag=dag)
 
-    ckpt_reader_task >> op >> spark_task_status >> [ckpt_success_task, ckpt_failure_task]
+    build_operator >> ckpt_reader_task >> op >> spark_task_status >> [ckpt_success_task, ckpt_failure_task]
     [ckpt_failure_task, ckpt_success_task] >> notification_task
